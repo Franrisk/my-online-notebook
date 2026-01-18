@@ -1,0 +1,30 @@
+﻿<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>我的在线记事本</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="container">
+        <h1>📝 我的在线记事本</h1>
+
+        <div class="input-area">
+            <input type="text" id="noteInput" placeholder="写下你要记住的事...">
+            <button id="saveBtn">保存笔记</button>
+        </div>
+
+        <ul id="notesList">
+            <!-- 笔记会显示在这里 -->
+            <li>示例笔记：欢迎使用！</li>
+        </ul>
+
+        <div id="emptyMessage" style="display: none; text-align: center; color: #666; padding: 20px;">
+            还没有笔记，快写第一条吧！
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>
