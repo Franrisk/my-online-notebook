@@ -1,6 +1,6 @@
 ﻿// frontend/app.js - 适配MongoDB版本
 // 自动检测环境
-const API_BASE_URL = window.location.hostname === 'localhost' 
+const API_BASE_URL = window.location.origin.includes('localhost') 
   ? 'http://localhost:5000/api' 
   : '/api';
 
