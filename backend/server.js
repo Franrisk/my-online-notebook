@@ -1,4 +1,19 @@
 // backend/server.js - 完全修复版（适合新手）
+// 在 server.js 文件开头添加这些判断
+const isVercel = process.env.VERCEL === '1';
+
+// 修改连接字符串逻辑
+if (isVercel) {
+    console.log('☁️  Vercel环境部署');
+    // Vercel上使用环境变量
+} else {
+    console.log('💻 本地开发环境');
+    // 本地使用硬编码
+    if (!process.env.MONGODB_URI) {
+        process.env.MONGODB_URI = "mongodb+srv://franrisk:djy050405@my-online-notebook.vbrb6e1.mongodb.net/notes_app?retryWrites=true&w=majority&appName=my-online-notebook";
+    }
+}
+
 const express = require('express');
 const cors = require('cors');
 const path = require('path');
