@@ -5,8 +5,6 @@ const path = require('path');
 const { ObjectId } = require('mongodb');
 require('dotenv').config();
 
-// Windows SSL修复
-process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0';
 
 // 导入数据库模块
 const { connect, getCollection, healthCheck } = require('./db');
