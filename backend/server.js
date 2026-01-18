@@ -1,15 +1,45 @@
 ﻿// server.js - 连接MongoDB的完整版本
 const express = require('express');
 const cors = require('cors');
-require('dotenv').config(); // 加载环境变量
+const path = require('path');  // 添加这行
+require('dotenv').config();
 
-// 导入数据库模块
-const { connect, getCollection, healthCheck } = require('./db');
+process.env.NODE_ENV = process.env.NODE_ENV || 'production';
 
-// 创建Express应用
 const app = express();
-const PORT = process.env.PORT || 5000;
 
+// 中间件
+app.use(cors());
+app.use(express.json());
+
+// 在开发环境提供前端文件
+if (process.env.NODE_ENV === 'development') {
+  app.use(express.static(path.join(__dirname, '../frontend')));
+}
+
+// 你的API路由...
+app.get('/api/notes', async (req, res) => { ... });
+app.post('/api/notes', async (req, res) => { ... });
+
+// 健康检查
+app.get('/health', (req, res) => {
+  res.json({ status: 'ok', timestamp: new Date() });
+});
+
+// 根路径重定向到前端
+app.get('/', (req, res) => {
+  if (process.env.NODE_ENV === 'development') {
+    res.sendFile(path.join(__dirname, '../frontend/index.html'));
+  } else {
+    res.redirect('/index.html');
+  }
+});
+
+// 启动服务器
+const PORT = process.env.PORT || 5000;
+app.listen(PORT, () => {
+  console.log(`🚀 服务器运行在端口 ${PORT}`);
+});
 // 🔧 添加这行代码来修复Windows SSL问题（在app.use(cors())之前）
 process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0';  // <-- 就加这一行
 
