@@ -1,89 +1,119 @@
-// frontend/app.js - 适配Vercel版本
+// frontend/app.js - 添加详细调试
 document.addEventListener('DOMContentLoaded', function () {
     console.log('📝 Notebook Frontend Loading...');
-    
+    console.log('当前页面URL:', window.location.href);
+    console.log('页面路径:', window.location.pathname);
+
     // 自动检测API地址
     const API_BASE = window.location.origin;
-    console.log('🌐 Detected API Base:', API_BASE);
-    
+    console.log('🌐 检测到的API基础地址:', API_BASE);
+
     const noteInput = document.getElementById('noteInput');
     const saveBtn = document.getElementById('saveBtn');
     const notesList = document.getElementById('notesList');
     const emptyMessage = document.getElementById('emptyMessage');
 
+    // 显示加载状态
+    notesList.innerHTML = '<li style="color:#666;text-align:center;padding:20px;">正在加载笔记...</li>';
+
     // ========== 核心功能 ==========
 
     // 获取笔记
     async function fetchNotes() {
-        console.log('🔍 Fetching notes from:', `${API_BASE}/api/notes`);
-        
+        console.log('🔍 正在从以下地址获取笔记:', `${API_BASE}/api/notes`);
+
         try {
             const response = await fetch(`${API_BASE}/api/notes`);
-            
+            console.log('响应状态:', response.status, response.statusText);
+            console.log('响应头:', Object.fromEntries(response.headers.entries()));
+
             if (!response.ok) {
+                console.error('请求失败:', response);
                 throw new Error(`HTTP ${response.status}: ${response.statusText}`);
             }
-            
+
             const notes = await response.json();
-            console.log('📊 Notes received:', notes.length);
+            console.log('📊 获取到的笔记数据:', notes);
+            console.log('笔记数量:', notes.length);
+
             displayNotes(notes);
-            
+
         } catch (error) {
-            console.error('❌ Failed to fetch notes:', error);
-            showMessage('无法加载笔记，请检查网络连接', 'error');
-            notesList.innerHTML = '<li style="color:#666;text-align:center;padding:20px;">加载失败，请刷新页面</li>';
+            console.error('❌ 获取笔记失败:', error);
+            console.error('完整错误:', error.stack);
+
+            notesList.innerHTML = `
+                <li style="color:#e74c3c;background:#ffeaea;padding:20px;text-align:center;">
+                    <strong>❌ 连接失败</strong><br>
+                    错误: ${error.message}<br>
+                    API地址: ${API_BASE}/api/notes<br><br>
+                    <button onclick="location.reload()" style="padding:8px 16px;background:#e74c3c;color:white;border:none;border-radius:4px;cursor:pointer;">
+                        刷新页面
+                    </button>
+                    <button onclick="testConnection()" style="margin-left:10px;padding:8px 16px;background:#3498db;color:white;border:none;border-radius:4px;cursor:pointer;">
+                        测试连接
+                    </button>
+                </li>
+            `;
         }
     }
 
     // 显示笔记
     function displayNotes(notes) {
+        console.log('🎨 开始渲染笔记...');
         notesList.innerHTML = '';
-        
+
         if (!notes || notes.length === 0) {
+            console.log('📭 没有笔记');
             emptyMessage.style.display = 'block';
             return;
         }
-        
+
         emptyMessage.style.display = 'none';
-        
-        notes.forEach(note => {
+        console.log(`渲染 ${notes.length} 条笔记`);
+
+        notes.forEach((note, index) => {
+            console.log(`笔记 ${index + 1}:`, note);
             const li = document.createElement('li');
-            
+
             // 格式化时间
-            const time = note.createdAt 
+            const time = note.createdAt
                 ? new Date(note.createdAt).toLocaleString('zh-CN')
-                : 'Unknown time';
-            
+                : '未知时间';
+
             li.innerHTML = `
-                <div class="note-content">${note.content || 'No content'}</div>
+                <div class="note-content">${note.content || '无内容'}</div>
                 <div class="note-footer">
                     <small class="note-time">${time}</small>
                     <button class="delete-btn" data-id="${note._id}">删除</button>
                 </div>
             `;
-            
+
             // 删除按钮事件
-            li.querySelector('.delete-btn').addEventListener('click', function() {
+            li.querySelector('.delete-btn').addEventListener('click', function () {
                 deleteNote(note._id);
             });
-            
+
             notesList.appendChild(li);
         });
+
+        console.log('✅ 笔记渲染完成');
     }
 
     // 保存笔记
     async function saveNote() {
         const content = noteInput.value.trim();
-        
+
         if (!content) {
-            showMessage('请输入笔记内容', 'warning');
+            alert('请输入笔记内容');
             noteInput.focus();
             return;
         }
-        
+
         try {
-            console.log('💾 Saving note...');
-            
+            console.log('💾 正在保存笔记到:', `${API_BASE}/api/notes`);
+            console.log('内容:', content);
+
             const response = await fetch(`${API_BASE}/api/notes`, {
                 method: 'POST',
                 headers: {
@@ -91,27 +121,36 @@ document.addEventListener('DOMContentLoaded', function () {
                 },
                 body: JSON.stringify({ content })
             });
-            
+
+            console.log('保存响应状态:', response.status, response.statusText);
+
             if (!response.ok) {
-                const error = await response.json();
-                throw new Error(error.error || '保存失败');
+                const errorText = await response.text();
+                console.error('保存失败响应:', errorText);
+                let errorData;
+                try {
+                    errorData = JSON.parse(errorText);
+                } catch {
+                    errorData = { error: errorText };
+                }
+                throw new Error(errorData.error || `HTTP ${response.status}`);
             }
-            
+
             const savedNote = await response.json();
-            console.log('✅ Note saved:', savedNote._id);
-            
+            console.log('✅ 笔记保存成功:', savedNote);
+
             // 清空输入框
             noteInput.value = '';
-            
+
             // 刷新列表
             await fetchNotes();
-            
+
             // 显示成功消息
             showMessage('笔记保存成功！', 'success');
-            
+
         } catch (error) {
-            console.error('❌ Save failed:', error);
-            showMessage('保存失败: ' + error.message, 'error');
+            console.error('❌ 保存失败:', error);
+            alert('保存失败: ' + error.message);
         }
     }
 
@@ -120,30 +159,40 @@ document.addEventListener('DOMContentLoaded', function () {
         if (!confirm('确定要删除这条笔记吗？')) {
             return;
         }
-        
+
         try {
-            console.log('🗑️ Deleting note:', noteId);
-            
+            console.log('🗑️ 正在删除笔记:', `${API_BASE}/api/notes/${noteId}`);
+
             const response = await fetch(`${API_BASE}/api/notes/${noteId}`, {
                 method: 'DELETE'
             });
-            
+
+            console.log('删除响应状态:', response.status);
+
             if (!response.ok) {
-                const error = await response.json();
-                throw new Error(error.error || '删除失败');
+                const errorText = await response.text();
+                console.error('删除失败响应:', errorText);
+                let errorData;
+                try {
+                    errorData = JSON.parse(errorText);
+                } catch {
+                    errorData = { error: errorText };
+                }
+                throw new Error(errorData.error || '删除失败');
             }
-            
-            console.log('✅ Note deleted');
-            
+
+            const result = await response.json();
+            console.log('✅ 删除成功:', result);
+
             // 刷新列表
             await fetchNotes();
-            
+
             // 显示成功消息
             showMessage('笔记已删除！', 'success');
-            
+
         } catch (error) {
-            console.error('❌ Delete failed:', error);
-            showMessage('删除失败: ' + error.message, 'error');
+            console.error('❌ 删除失败:', error);
+            alert('删除失败: ' + error.message);
         }
     }
 
@@ -156,7 +205,7 @@ document.addEventListener('DOMContentLoaded', function () {
             warning: '#f39c12',
             info: '#3498db'
         };
-        
+
         const toast = document.createElement('div');
         toast.style.cssText = `
             position: fixed;
@@ -172,12 +221,42 @@ document.addEventListener('DOMContentLoaded', function () {
         `;
         toast.textContent = text;
         document.body.appendChild(toast);
-        
+
         setTimeout(() => {
             toast.style.animation = 'slideOut 0.3s ease-out';
             setTimeout(() => toast.remove(), 300);
         }, 3000);
     }
+
+    // 全局测试函数
+    window.testConnection = async function () {
+        console.log('🔧 手动测试连接...');
+
+        try {
+            const testUrls = [
+                `${API_BASE}/health`,
+                `${API_BASE}/api/notes`,
+                `${API_BASE}/`
+            ];
+
+            for (const url of testUrls) {
+                console.log(`测试 ${url}...`);
+                const response = await fetch(url);
+                console.log(`${url}: ${response.status} ${response.statusText}`);
+
+                if (response.ok) {
+                    const data = await response.text();
+                    console.log(`响应数据:`, data.substring(0, 200) + '...');
+                }
+            }
+
+            // 重新获取笔记
+            await fetchNotes();
+
+        } catch (error) {
+            console.error('测试连接失败:', error);
+        }
+    };
 
     // ========== 事件监听 ==========
     saveBtn.addEventListener('click', saveNote);
@@ -186,10 +265,10 @@ document.addEventListener('DOMContentLoaded', function () {
     });
 
     // ========== 初始化 ==========
-    console.log('🚀 Initializing frontend...');
+    console.log('🚀 开始初始化前端...');
     fetchNotes();
     noteInput.focus();
-    
+
     // 添加CSS动画
     const style = document.createElement('style');
     style.textContent = `
@@ -201,8 +280,37 @@ document.addEventListener('DOMContentLoaded', function () {
             from { transform: translateX(0); opacity: 1; }
             to { transform: translateX(100%); opacity: 0; }
         }
+        
+        /* 添加一些基本样式 */
+        .note-content {
+            margin-bottom: 8px;
+            font-size: 16px;
+            line-height: 1.5;
+        }
+        .note-footer {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 12px;
+        }
+        .note-time {
+            color: #666;
+        }
+        .delete-btn {
+            background: #e74c3c;
+            color: white;
+            border: none;
+            padding: 4px 12px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 12px;
+            transition: background 0.3s;
+        }
+        .delete-btn:hover {
+            background: #c0392b;
+        }
     `;
     document.head.appendChild(style);
-    
-    console.log('✅ Frontend initialized');
+
+    console.log('✅ 前端初始化完成');
 });
