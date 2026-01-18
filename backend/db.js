@@ -1,118 +1,90 @@
-// backend/db.js - 适配Vercel和本地
+// backend/db.js - 简化版
 const { MongoClient } = require('mongodb');
 
-class Database {
-    constructor() {
-        this.client = null;
-        this.db = null;
-        this.collection = null;
-        this.isConnected = false;
-    }
+let client = null;
+let db = null;
+let collection = null;
+let isConnected = false;
 
-    async connect() {
-        try {
-            const uri = process.env.MONGODB_URI;
+async function connect() {
+    try {
+        const uri = process.env.MONGODB_URI;
+        console.log('🔄 正在连接MongoDB...');
 
-            if (!uri) {
-                throw new Error('MONGODB_URI environment variable is not set');
-            }
-
-            console.log('🔄 Connecting to MongoDB...');
-
-            // 优化连接选项
-            const clientOptions = {
-                serverSelectionTimeoutMS: 10000,
-                connectTimeoutMS: 10000,
-                maxPoolSize: 10,
-                retryWrites: true,
-                w: 'majority'
-            };
-
-            this.client = new MongoClient(uri, clientOptions);
-
-            // 连接
-            await this.client.connect();
-            console.log('✅ MongoDB client connected');
-
-            // 验证连接
-            await this.client.db('admin').command({ ping: 1 });
-            console.log('✅ MongoDB ping successful');
-
-            // 获取数据库和集合
-            this.db = this.client.db('notes_app');
-            this.collection = this.db.collection('notes');
-
-            // 确保集合存在并创建索引
-            const collections = await this.db.listCollections({ name: 'notes' }).toArray();
-            if (collections.length === 0) {
-                console.log('📝 Creating notes collection...');
-                await this.db.createCollection('notes');
-            }
-
-            // 创建索引
-            await this.collection.createIndex({ createdAt: -1 });
-            console.log('✅ Index created/verified');
-
-            this.isConnected = true;
-            console.log('🎉 Database connection fully established');
-
-            return this.db;
-
-        } catch (error) {
-            console.error('❌ Database connection failed:', error.message);
-
-            // 清理资源
-            if (this.client) {
-                try {
-                    await this.client.close();
-                } catch (closeError) {
-                    console.log('Error closing connection:', closeError.message);
-                }
-            }
-
-            this.client = null;
-            this.db = null;
-            this.collection = null;
-            this.isConnected = false;
-
-            throw error;
+        if (!uri) {
+            throw new Error('请设置MONGODB_URI环境变量');
         }
-    }
 
-    getCollection() {
-        if (!this.isConnected) {
-            throw new Error('Database is not connected. Call connect() first.');
-        }
-        return this.collection;
-    }
+        client = new MongoClient(uri, {
+            serverSelectionTimeoutMS: 10000,
+            connectTimeoutMS: 10000
+        });
 
-    async healthCheck() {
-        try {
-            if (!this.isConnected || !this.client) {
-                return false;
+        await client.connect();
+        console.log('✅ MongoDB连接成功');
+
+        // 测试连接
+        await client.db('admin').command({ ping: 1 });
+
+        db = client.db('notes_app');
+        collection = db.collection('notes');
+        isConnected = true;
+
+        console.log('✅ 使用数据库: notes_app');
+        console.log('✅ 使用集合: notes');
+
+        return { client, db, collection };
+
+    } catch (error) {
+        console.error('❌ 数据库连接失败:', error.message);
+
+        // 清理
+        if (client) {
+            try {
+                await client.close();
+            } catch (e) {
+                console.log('关闭连接时出错:', e.message);
             }
-            await this.client.db('admin').command({ ping: 1 });
-            return true;
-        } catch (error) {
-            console.log('Health check failed:', error.message);
-            return false;
         }
-    }
 
-    async close() {
-        if (this.client) {
-            await this.client.close();
-            this.isConnected = false;
-            console.log('🔒 Database connection closed');
-        }
+        client = null;
+        db = null;
+        collection = null;
+        isConnected = false;
+
+        throw error;
     }
 }
 
-const database = new Database();
+function getCollection() {
+    if (!isConnected) {
+        throw new Error('数据库未连接');
+    }
+    return collection;
+}
+
+async function healthCheck() {
+    try {
+        if (!isConnected || !client) {
+            return false;
+        }
+        await client.db('admin').command({ ping: 1 });
+        return true;
+    } catch {
+        return false;
+    }
+}
+
+async function close() {
+    if (client) {
+        await client.close();
+        isConnected = false;
+    }
+}
 
 module.exports = {
-    connect: () => database.connect(),
-    getCollection: () => database.getCollection(),
-    healthCheck: () => database.healthCheck(),
-    close: () => database.close()
+    connect,
+    getCollection,
+    healthCheck,
+    close
 };
