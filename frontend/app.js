@@ -1,5 +1,8 @@
 ﻿// frontend/app.js - 适配MongoDB版本
-const API_BASE_URL = 'http://localhost:5000/api';
+// 自动检测环境
+const API_BASE_URL = window.location.hostname === 'localhost' 
+  ? 'http://localhost:5000/api' 
+  : '/api';
 
 document.addEventListener('DOMContentLoaded', function () {
     console.log('=== 前端启动（MongoDB版本）===');
