@@ -2,6 +2,7 @@
 const express = require('express');
 const cors = require('cors');
 const path = require('path');
+const { ObjectId } = require('mongodb');
 require('dotenv').config();
 
 // Windows SSL修复
@@ -23,6 +24,7 @@ let isDbConnected = false;
 
 async function initializeDatabase() {
     try {
+        console.log('🔌 尝试连接数据库...');
         await connect();
         isDbConnected = true;
         console.log('✅ 数据库初始化完成');
@@ -41,7 +43,7 @@ initializeDatabase();
 // 1. 提供前端静态文件（重要！）
 app.use(express.static(path.join(__dirname, '../frontend')));
 
-// 2. API路由
+// 2. 获取所有笔记
 app.get('/api/notes', async (req, res) => {
     console.log(`[${new Date().toLocaleTimeString()}] 📥 GET /api/notes`);
 
@@ -69,6 +71,7 @@ app.get('/api/notes', async (req, res) => {
     }
 });
 
+// 3. 创建新笔记
 app.post('/api/notes', async (req, res) => {
     console.log(`[${new Date().toLocaleTimeString()}] 📥 POST /api/notes`, req.body);
 
@@ -112,17 +115,92 @@ app.post('/api/notes', async (req, res) => {
     }
 });
 
-// 3. 健康检查
-app.get('/health', async (req, res) => {
-    const dbStatus = await healthCheck();
-    res.json({
-        status: 'healthy',
-        database: dbStatus ? 'connected' : 'disconnected',
-        timestamp: new Date().toISOString()
-    });
+// 4. 删除笔记（新增的DELETE接口）
+app.delete('/api/notes/:id', async (req, res) => {
+    console.log(`[${new Date().toLocaleTimeString()}] 📥 DELETE /api/notes/${req.params.id}`);
+
+    try {
+        if (!isDbConnected) {
+            throw new Error('数据库未连接');
+        }
+
+        const collection = getCollection();
+        
+        // 验证ID格式
+        if (!ObjectId.isValid(req.params.id)) {
+            return res.status(400).json({
+                error: '无效的笔记ID格式'
+            });
+        }
+
+        const result = await collection.deleteOne({
+            _id: new ObjectId(req.params.id)
+        });
+
+        if (result.deletedCount === 0) {
+            return res.status(404).json({
+                error: '笔记未找到'
+            });
+        }
+
+        console.log(`✅ 笔记删除成功 (ID: ${req.params.id})`);
+        res.json({ success: true });
+
+    } catch (error) {
+        console.error('❌ 删除笔记失败:', error.message);
+        
+        res.status(500).json({
+            error: '删除笔记失败'
+        });
+    }
 });
 
-// 4. 所有其他请求都返回前端
+// 5. 健康检查
+app.get('/health', async (req, res) => {
+    try {
+        const dbStatus = await healthCheck();
+        res.json({
+            status: 'healthy',
+            database: dbStatus ? 'connected' : 'disconnected',
+            timestamp: new Date().toISOString()
+        });
+    } catch (error) {
+        res.json({
+            status: 'healthy',
+            database: 'error',
+            error: error.message,
+            timestamp: new Date().toISOString()
+        });
+    }
+});
+
+// 6. 测试数据库连接
+app.get('/api/test-db', async (req, res) => {
+    try {
+        if (!isDbConnected) {
+            return res.json({
+                status: 'disconnected',
+                message: '数据库未连接'
+            });
+        }
+
+        const collection = getCollection();
+        const count = await collection.countDocuments();
+        
+        res.json({
+            status: 'connected',
+            message: '数据库连接正常',
+            noteCount: count
+        });
+    } catch (error) {
+        res.status(500).json({
+            status: 'error',
+            message: error.message
+        });
+    }
+});
+
+// 7. 所有其他请求都返回前端
 app.get('*', (req, res) => {
     res.sendFile(path.join(__dirname, '../frontend/index.html'));
 });
@@ -134,6 +212,7 @@ const server = app.listen(PORT, () => {
     console.log('='.repeat(60));
     console.log(`📡 地址: http://localhost:${PORT}`);
     console.log(`🔌 数据库: ${isDbConnected ? '✅ MongoDB Atlas' : '⚠️ 内存模式'}`);
+    console.log(`📁 前端目录: ${path.join(__dirname, '../frontend')}`);
     console.log('='.repeat(60));
 });
 
