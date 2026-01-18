@@ -1,4 +1,4 @@
-﻿// db.js - 简化的数据库连接
+// db.js - 修复版本
 const { MongoClient } = require('mongodb');
 require('dotenv').config();
 
@@ -23,6 +23,7 @@ class Database {
             }
 
             console.log('🔄 尝试连接数据库...');
+            console.log('连接字符串:', uri.substring(0, 50) + '...'); // 只显示前50个字符
 
             // 使用简化的连接配置
             this.client = new MongoClient(uri, {
@@ -35,6 +36,9 @@ class Database {
             // 选择数据库
             this.db = this.client.db('notes_app');
             this.collection = this.db.collection('notes');
+
+            // 创建索引（可选）
+            await this.collection.createIndex({ createdAt: -1 });
 
             this.isConnected = true;
             console.log('✅ 成功连接到MongoDB Atlas');
@@ -64,6 +68,20 @@ class Database {
         return this.collection;
     }
 
+    // 添加 healthCheck 函数
+    async healthCheck() {
+        try {
+            if (!this.isConnected) {
+                return false;
+            }
+            await this.db.command({ ping: 1 });
+            return true;
+        } catch (error) {
+            console.error('❌ 数据库健康检查失败:', error.message);
+            return false;
+        }
+    }
+
     async close() {
         if (this.client) {
             await this.client.close();
@@ -78,5 +96,6 @@ module.exports = {
     db: database,
     connect: () => database.connect(),
     getCollection: () => database.getCollection(),
+    healthCheck: () => database.healthCheck(),
     close: () => database.close()
 };
