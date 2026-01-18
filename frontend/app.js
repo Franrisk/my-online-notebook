@@ -1,11 +1,11 @@
 // frontend/app.js - 适配Vercel版本
 document.addEventListener('DOMContentLoaded', function () {
     console.log('📝 Notebook Frontend Loading...');
-
+    
     // 自动检测API地址
     const API_BASE = window.location.origin;
     console.log('🌐 Detected API Base:', API_BASE);
-
+    
     const noteInput = document.getElementById('noteInput');
     const saveBtn = document.getElementById('saveBtn');
     const notesList = document.getElementById('notesList');
@@ -16,18 +16,18 @@ document.addEventListener('DOMContentLoaded', function () {
     // 获取笔记
     async function fetchNotes() {
         console.log('🔍 Fetching notes from:', `${API_BASE}/api/notes`);
-
+        
         try {
             const response = await fetch(`${API_BASE}/api/notes`);
-
+            
             if (!response.ok) {
                 throw new Error(`HTTP ${response.status}: ${response.statusText}`);
             }
-
+            
             const notes = await response.json();
             console.log('📊 Notes received:', notes.length);
             displayNotes(notes);
-
+            
         } catch (error) {
             console.error('❌ Failed to fetch notes:', error);
             showMessage('无法加载笔记，请检查网络连接', 'error');
@@ -38,22 +38,22 @@ document.addEventListener('DOMContentLoaded', function () {
     // 显示笔记
     function displayNotes(notes) {
         notesList.innerHTML = '';
-
+        
         if (!notes || notes.length === 0) {
             emptyMessage.style.display = 'block';
             return;
         }
-
+        
         emptyMessage.style.display = 'none';
-
+        
         notes.forEach(note => {
             const li = document.createElement('li');
-
+            
             // 格式化时间
-            const time = note.createdAt
+            const time = note.createdAt 
                 ? new Date(note.createdAt).toLocaleString('zh-CN')
                 : 'Unknown time';
-
+            
             li.innerHTML = `
                 <div class="note-content">${note.content || 'No content'}</div>
                 <div class="note-footer">
@@ -61,12 +61,12 @@ document.addEventListener('DOMContentLoaded', function () {
                     <button class="delete-btn" data-id="${note._id}">删除</button>
                 </div>
             `;
-
+            
             // 删除按钮事件
-            li.querySelector('.delete-btn').addEventListener('click', function () {
+            li.querySelector('.delete-btn').addEventListener('click', function() {
                 deleteNote(note._id);
             });
-
+            
             notesList.appendChild(li);
         });
     }
@@ -74,16 +74,16 @@ document.addEventListener('DOMContentLoaded', function () {
     // 保存笔记
     async function saveNote() {
         const content = noteInput.value.trim();
-
+        
         if (!content) {
             showMessage('请输入笔记内容', 'warning');
             noteInput.focus();
             return;
         }
-
+        
         try {
             console.log('💾 Saving note...');
-
+            
             const response = await fetch(`${API_BASE}/api/notes`, {
                 method: 'POST',
                 headers: {
@@ -91,24 +91,24 @@ document.addEventListener('DOMContentLoaded', function () {
                 },
                 body: JSON.stringify({ content })
             });
-
+            
             if (!response.ok) {
                 const error = await response.json();
                 throw new Error(error.error || '保存失败');
             }
-
+            
             const savedNote = await response.json();
             console.log('✅ Note saved:', savedNote._id);
-
+            
             // 清空输入框
             noteInput.value = '';
-
+            
             // 刷新列表
             await fetchNotes();
-
+            
             // 显示成功消息
             showMessage('笔记保存成功！', 'success');
-
+            
         } catch (error) {
             console.error('❌ Save failed:', error);
             showMessage('保存失败: ' + error.message, 'error');
@@ -120,27 +120,27 @@ document.addEventListener('DOMContentLoaded', function () {
         if (!confirm('确定要删除这条笔记吗？')) {
             return;
         }
-
+        
         try {
             console.log('🗑️ Deleting note:', noteId);
-
+            
             const response = await fetch(`${API_BASE}/api/notes/${noteId}`, {
                 method: 'DELETE'
             });
-
+            
             if (!response.ok) {
                 const error = await response.json();
                 throw new Error(error.error || '删除失败');
             }
-
+            
             console.log('✅ Note deleted');
-
+            
             // 刷新列表
             await fetchNotes();
-
+            
             // 显示成功消息
             showMessage('笔记已删除！', 'success');
-
+            
         } catch (error) {
             console.error('❌ Delete failed:', error);
             showMessage('删除失败: ' + error.message, 'error');
@@ -156,7 +156,7 @@ document.addEventListener('DOMContentLoaded', function () {
             warning: '#f39c12',
             info: '#3498db'
         };
-
+        
         const toast = document.createElement('div');
         toast.style.cssText = `
             position: fixed;
@@ -172,7 +172,7 @@ document.addEventListener('DOMContentLoaded', function () {
         `;
         toast.textContent = text;
         document.body.appendChild(toast);
-
+        
         setTimeout(() => {
             toast.style.animation = 'slideOut 0.3s ease-out';
             setTimeout(() => toast.remove(), 300);
@@ -189,7 +189,7 @@ document.addEventListener('DOMContentLoaded', function () {
     console.log('🚀 Initializing frontend...');
     fetchNotes();
     noteInput.focus();
-
+    
     // 添加CSS动画
     const style = document.createElement('style');
     style.textContent = `
@@ -203,6 +203,6 @@ document.addEventListener('DOMContentLoaded', function () {
         }
     `;
     document.head.appendChild(style);
-
+    
     console.log('✅ Frontend initialized');
 });
