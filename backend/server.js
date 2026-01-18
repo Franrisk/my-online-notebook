@@ -1,35 +1,22 @@
-// backend/server.js - Vercel + 本地双环境版本
+// backend/server.js - 完全修复版（适合新手）
 const express = require('express');
 const cors = require('cors');
 const path = require('path');
 const { ObjectId } = require('mongodb');
 
-// ========== 环境配置 ==========
 console.log('='.repeat(60));
-console.log('🚀 启动配置检查');
+console.log('🚀 正在启动服务器...');
 console.log('='.repeat(60));
 
-// 判断环境
-const isVercel = process.env.VERCEL === '1' || process.env.NODE_ENV === 'production';
-const isLocal = !isVercel;
-
-console.log('🌍 运行环境:');
-console.log(`  - Vercel环境: ${isVercel ? '✅ 是' : '❌ 否'}`);
-console.log(`  - 本地环境: ${isLocal ? '✅ 是' : '❌ 否'}`);
-console.log(`  - NODE_ENV: ${process.env.NODE_ENV || 'development'}`);
-
-// 本地开发时使用硬编码的连接字符串
-if (isLocal && !process.env.MONGODB_URI) {
-    console.log('🔧 本地环境：使用硬编码MONGODB_URI');
+// 设置环境变量
+if (!process.env.MONGODB_URI) {
+    console.log('🔧 使用本地连接字符串');
     process.env.MONGODB_URI = "mongodb+srv://franrisk:djy050405@my-online-notebook.vbrb6e1.mongodb.net/notes_app?retryWrites=true&w=majority&appName=my-online-notebook";
 }
 
-console.log(`🔑 MONGODB_URI: ${process.env.MONGODB_URI ? '✅ 已设置' : '❌ 未设置'}`);
-if (process.env.MONGODB_URI) {
-    // 安全显示连接字符串（隐藏密码）
-    const safeUri = process.env.MONGODB_URI.replace(/:[^:]*@/, ':****@');
-    console.log(`  连接字符串: ${safeUri.substring(0, 80)}...`);
-}
+console.log('📊 环境检查:');
+console.log('- 端口:', process.env.PORT || 5000);
+console.log('- 数据库:', process.env.MONGODB_URI ? '✅ 已配置' : '❌ 未配置');
 console.log('='.repeat(60));
 
 const { connect, getCollection, healthCheck } = require('./db');
@@ -38,134 +25,108 @@ const app = express();
 const PORT = process.env.PORT || 5000;
 
 // 中间件
-app.use(cors());
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
+app.use(cors());  // 允许跨域
+app.use(express.json());  // 解析JSON数据
+app.use(express.urlencoded({ extended: true }));  // 解析表单数据
 
 // 全局变量
 let isDbConnected = false;
 
-// ==================== 数据库初始化 ====================
-async function initializeDatabase() {
-    console.log('🔌 初始化数据库连接...');
-
+// ==================== 1. 连接数据库 ====================
+async function connectToDatabase() {
     try {
+        console.log('🔌 正在连接数据库...');
         await connect();
         isDbConnected = true;
         console.log('✅ 数据库连接成功！');
-        return true;
     } catch (error) {
         console.error('❌ 数据库连接失败:', error.message);
-        console.log('⚠️  应用将在无数据库模式下运行（部分功能受限）');
         isDbConnected = false;
-        return false;
+        console.log('⚠️  应用将在无数据库模式下运行');
     }
 }
 
-// ==================== API 路由 ====================
+// ==================== 2. API路由 ====================
 
-// 首页（API信息）
+// 首页
 app.get('/', (req, res) => {
-    res.json({
-        service: 'My Online Notebook API',
-        version: '2.0.0',
-        status: 'running',
-        environment: isVercel ? 'vercel' : 'local',
-        database: isDbConnected ? 'connected' : 'disconnected',
-        timestamp: new Date().toISOString(),
-        endpoints: {
-            health: '/health',
-            notes: '/api/notes',
-            environment: '/api/environment',
-            frontend: isVercel ? '/' : '/app'  // Vercel上前端是根路径
-        }
-    });
-});
-
-// 环境信息
-app.get('/api/environment', (req, res) => {
-    res.json({
-        platform: isVercel ? 'vercel' : 'local',
-        nodeVersion: process.version,
-        environment: process.env.NODE_ENV || 'development',
-        database: {
-            connected: isDbConnected,
-            uriConfigured: !!process.env.MONGODB_URI
-        },
-        vercel: {
-            isVercel: isVercel,
-            region: process.env.VERCEL_REGION || 'not-vercel'
-        }
-    });
+    res.send(`
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <title>我的在线记事本</title>
+            <style>
+                body { font-family: Arial, sans-serif; margin: 40px; }
+                h1 { color: #333; }
+                .box { background: #f5f5f5; padding: 20px; border-radius: 10px; margin: 10px 0; }
+                a { color: #3498db; text-decoration: none; }
+                a:hover { text-decoration: underline; }
+            </style>
+        </head>
+        <body>
+            <h1>📝 我的在线记事本</h1>
+            <div class="box">
+                <h3>服务器状态: <span style="color:green">✅ 运行中</span></h3>
+                <p>数据库: ${isDbConnected ? '✅ 已连接' : '❌ 未连接'}</p>
+                <p>端口: ${PORT}</p>
+            </div>
+            <div class="box">
+                <h3>🔗 快速链接:</h3>
+                <ul>
+                    <li><a href="/app" target="_blank">📱 打开前端应用</a></li>
+                    <li><a href="/health" target="_blank">❤️‍🩹 健康检查</a></li>
+                    <li><a href="/api/notes" target="_blank">📄 获取所有笔记</a></li>
+                </ul>
+            </div>
+        </body>
+        </html>
+    `);
 });
 
 // 健康检查
-app.get('/health', async (req, res) => {
-    try {
-        const dbStatus = isDbConnected ? await healthCheck() : false;
-
-        res.json({
-            status: 'healthy',
-            timestamp: new Date().toISOString(),
-            server: 'online',
-            database: dbStatus ? 'connected' : 'disconnected',
-            environment: isVercel ? 'production' : 'development',
-            uptime: process.uptime()
-        });
-    } catch (error) {
-        res.status(500).json({
-            status: 'error',
-            error: error.message
-        });
-    }
+app.get('/health', (req, res) => {
+    res.json({
+        status: 'ok',
+        message: '服务器运行正常',
+        database: isDbConnected ? 'connected' : 'disconnected',
+        time: new Date().toISOString()
+    });
 });
 
 // 获取所有笔记
 app.get('/api/notes', async (req, res) => {
-    console.log(`📥 GET /api/notes`);
+    console.log('📥 收到获取笔记请求');
 
     try {
         if (!isDbConnected) {
-            // 数据库未连接时返回空数组，而不是错误
             return res.json([]);
         }
 
         const collection = getCollection();
-        const notes = await collection
-            .find({})
-            .sort({ createdAt: -1 })
-            .toArray();
+        const notes = await collection.find({}).sort({ createdAt: -1 }).toArray();
 
         console.log(`✅ 返回 ${notes.length} 条笔记`);
         res.json(notes);
 
     } catch (error) {
-        console.error('获取笔记失败:', error.message);
-        res.status(500).json({
-            error: 'Failed to fetch notes',
-            message: error.message
-        });
+        console.error('❌ 获取笔记失败:', error.message);
+        res.status(500).json({ error: '获取笔记失败' });
     }
 });
 
 // 创建新笔记
 app.post('/api/notes', async (req, res) => {
-    console.log(`📥 POST /api/notes`, req.body);
+    console.log('📥 收到创建笔记请求:', req.body);
 
     try {
         const { content } = req.body;
 
         if (!content || content.trim() === '') {
-            return res.status(400).json({
-                error: 'Content cannot be empty'
-            });
+            return res.status(400).json({ error: '笔记内容不能为空' });
         }
 
         if (!isDbConnected) {
-            return res.status(503).json({
-                error: 'Database not available',
-                message: 'Cannot save note at the moment'
-            });
+            return res.status(503).json({ error: '数据库未连接' });
         }
 
         const collection = getCollection();
@@ -185,29 +146,22 @@ app.post('/api/notes', async (req, res) => {
         res.status(201).json(savedNote);
 
     } catch (error) {
-        console.error('保存笔记失败:', error.message);
-        res.status(500).json({
-            error: 'Failed to save note',
-            message: error.message
-        });
+        console.error('❌ 保存笔记失败:', error.message);
+        res.status(500).json({ error: '保存笔记失败' });
     }
 });
 
 // 删除笔记
 app.delete('/api/notes/:id', async (req, res) => {
-    console.log(`📥 DELETE /api/notes/${req.params.id}`);
+    console.log('📥 收到删除笔记请求，ID:', req.params.id);
 
     try {
         if (!isDbConnected) {
-            return res.status(503).json({
-                error: 'Database not available'
-            });
+            return res.status(503).json({ error: '数据库未连接' });
         }
 
         if (!ObjectId.isValid(req.params.id)) {
-            return res.status(400).json({
-                error: 'Invalid note ID format'
-            });
+            return res.status(400).json({ error: '无效的笔记ID' });
         }
 
         const collection = getCollection();
@@ -216,105 +170,94 @@ app.delete('/api/notes/:id', async (req, res) => {
         });
 
         if (result.deletedCount === 0) {
-            return res.status(404).json({
-                error: 'Note not found'
-            });
+            return res.status(404).json({ error: '笔记不存在' });
         }
 
         console.log(`✅ 笔记删除成功，ID: ${req.params.id}`);
-        res.json({
-            success: true,
-            message: 'Note deleted successfully'
-        });
+        res.json({ success: true, message: '笔记已删除' });
 
     } catch (error) {
-        console.error('删除笔记失败:', error.message);
-        res.status(500).json({
-            error: 'Failed to delete note',
-            message: error.message
-        });
+        console.error('❌ 删除笔记失败:', error.message);
+        res.status(500).json({ error: '删除笔记失败' });
     }
 });
 
-// ==================== 前端服务 ====================
+// ==================== 3. 前端文件服务 ====================
 
-// Vercel部署时，前端文件在根目录
-if (isVercel) {
-    // Vercel会自动处理静态文件，我们只需要提供API
-    console.log('🌐 Vercel模式：前端由Vercel自动服务');
-} else {
-    // 本地开发时，提供前端文件
-    console.log('💻 本地模式：提供前端静态文件');
-    app.use(express.static(path.join(__dirname, '../frontend')));
+// 提供前端HTML文件
+app.get('/app', (req, res) => {
+    console.log('📄 提供前端页面');
+    res.sendFile(path.join(__dirname, '../frontend/index.html'));
+});
 
-    // 前端页面路由
-    app.get('/app', (req, res) => {
-        res.sendFile(path.join(__dirname, '../frontend/index.html'));
-    });
+// 提供CSS文件
+app.get('/style.css', (req, res) => {
+    res.sendFile(path.join(__dirname, '../frontend/style.css'));
+});
 
-    app.get('/app/*', (req, res) => {
-        res.sendFile(path.join(__dirname, '../frontend/index.html'));
-    });
-}
+// 提供JS文件
+app.get('/app.js', (req, res) => {
+    res.sendFile(path.join(__dirname, '../frontend/app.js'));
+});
 
-// ==================== 错误处理 ====================
+// ==================== 4. 错误处理 ====================
 
-// 404处理
+// 404页面
 app.use((req, res) => {
-    res.status(404).json({
-        error: 'Endpoint not found',
-        path: req.path,
-        method: req.method,
-        timestamp: new Date().toISOString()
-    });
+    res.status(404).send(`
+        <!DOCTYPE html>
+        <html>
+        <head><title>404 - 页面不存在</title></head>
+        <body>
+            <h1>❌ 404 - 页面不存在</h1>
+            <p>你访问的页面 <strong>${req.url}</strong> 不存在</p>
+            <p><a href="/">返回首页</a></p>
+        </body>
+        </html>
+    `);
 });
 
-// 错误处理中间件
+// 错误处理
 app.use((err, req, res, next) => {
-    console.error('🔥 Server Error:', err);
-
-    res.status(500).json({
-        error: 'Internal server error',
-        message: isVercel ? 'Please contact administrator' : err.message,
-        timestamp: new Date().toISOString()
-    });
+    console.error('🔥 服务器错误:', err);
+    res.status(500).send(`
+        <!DOCTYPE html>
+        <html>
+        <head><title>500 - 服务器错误</title></head>
+        <body>
+            <h1>🔥 500 - 服务器内部错误</h1>
+            <p>${err.message}</p>
+            <p><a href="/">返回首页</a></p>
+        </body>
+        </html>
+    `);
 });
 
-// ==================== 启动服务器 ====================
+// ==================== 5. 启动服务器 ====================
 
 async function startServer() {
-    console.log('🚀 启动服务器进程...');
+    console.log('🔄 正在连接数据库...');
+    await connectToDatabase();
 
-    // 初始化数据库
-    const dbInitialized = await initializeDatabase();
-
-    if (isLocal) {
-        // 本地开发：监听端口
-        app.listen(PORT, () => {
-            console.log('='.repeat(60));
-            console.log('🎉 本地服务器启动成功！');
-            console.log('='.repeat(60));
-            console.log(`📡 本地地址: http://localhost:${PORT}`);
-            console.log(`🌐 前端页面: http://localhost:${PORT}/app`);
-            console.log(`🔧 API地址: http://localhost:${PORT}/api/notes`);
-            console.log(`📊 数据库: ${dbInitialized ? '✅ 已连接' : '❌ 未连接'}`);
-            console.log(`⚙️  环境: ${process.env.NODE_ENV || 'development'}`);
-            console.log('='.repeat(60));
-        });
-    } else {
-        // Vercel环境：只打印信息
+    app.listen(PORT, () => {
         console.log('='.repeat(60));
-        console.log('☁️  Vercel部署环境');
+        console.log('🎉 服务器启动成功！');
         console.log('='.repeat(60));
-        console.log(`📊 数据库: ${dbInitialized ? '✅ 已连接' : '❌ 未连接'}`);
-        console.log(`⚙️  环境: ${process.env.NODE_ENV || 'production'}`);
-        console.log(`🌐 区域: ${process.env.VERCEL_REGION || 'unknown'}`);
+        console.log(`📡 本地访问: http://localhost:${PORT}`);
+        console.log(`🌐 前端应用: http://localhost:${PORT}/app`);
+        console.log(`📊 数据库状态: ${isDbConnected ? '✅ 已连接' : '❌ 未连接'}`);
         console.log('='.repeat(60));
-    }
+        console.log('🔗 测试链接:');
+        console.log(`  1. 首页: http://localhost:${PORT}/`);
+        console.log(`  2. 前端应用: http://localhost:${PORT}/app`);
+        console.log(`  3. 健康检查: http://localhost:${PORT}/health`);
+        console.log(`  4. 获取笔记: http://localhost:${PORT}/api/notes`);
+        console.log('='.repeat(60));
+    });
 }
 
 // 启动服务器
 startServer();
 
-// Vercel需要这个导出
+// Vercel需要这个
 module.exports = app;
